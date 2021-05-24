@@ -100,7 +100,7 @@ choosePort dummy conn pt fio = do
          -- ; bracket (    accept' sock) (\nconn -> close nconn >> atomically (signalTVar tv)) fio
             
             -- Otherwise...
-            ; bracket (TCP.accept  sock) (\nconn -> close nconn >> atomically (signalTVar tv)) fio
+            ; bracket ((TCP.accept  sock) `onException` (atomically $ signalTVar tv)) (\nconn -> close nconn >> atomically (signalTVar tv)) fio
             }
         -- Need to open a new port
         ; Nothing -> do
@@ -138,6 +138,7 @@ choosePort dummy conn pt fio = do
             -- (The above line(s) write[s] the socket to the "close queue" when it doesn't have any active connections)
          -- ; putStrLn $ "Opened a new thread : " ++ (show $ asyncThreadId asy)
             
+            -- Send the new port number on the initial connection.
             ; send conn (runPut $ putWord16le $ fromIntegral pnum)
             ; close conn
          -- ; nconn <- TCP.accept sock
@@ -145,7 +146,7 @@ choosePort dummy conn pt fio = do
             -- bracket :: (IO a) -> (a -> IO b) -> (a -> IO c) -> IO c
             -- ...I think...
          -- ; bracket (TCP.accept sock) (\nconn -> close nconn >> putStrLn "closing a connection" >> atomically (signalTVar tv)) fio
-            ; bracket (TCP.accept sock) (\nconn -> close nconn >> atomically (signalTVar tv)) fio
+            ; bracket ((TCP.accept sock) `onException` (atomically $ signalTVar tv)) (\nconn -> close nconn >> atomically (signalTVar tv) >> printTVar tv) fio
             }
         }
     }
@@ -312,6 +313,13 @@ dummyThread = do
 
 -- onExceptionAlt :: (Exception e) => IO a -> (e -> IO b) -> IO a
 -- onExceptionAlt io what = io `catch` \e -> do { _ <- what e ; throwIO (e :: SomeException) }
+
+printTVar :: (Show a) => TVar a -> IO ()
+printTVar tv = do
+    { val <- readTVarIO tv
+    ; putStrLn $ "TVar value: " ++ (show val)
+    }
+-- asdfzxcv
 
 {-
 -- Bracket that allows exceptions to be caught in the 'setup' phase.

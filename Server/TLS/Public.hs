@@ -38,7 +38,7 @@ module Server.TLS.Public
     ( -- * Type(s)
       PortTable
       -- * Initialisation
---  , startServer
+    , startServer
     , runAsyncServerSimple
     , runAsyncServerWithResource
 --  , acceptConnAsync
@@ -98,7 +98,7 @@ choosePort dummy parms conn pt fio = do
          -- ; bracket (TLS.accept parms sock) (\nconn -> close nconn >> putStrLn "closing a connection." >> atomically (signalTVar tv)) fio
             
             -- Otherwise...
-            ; bracket (TLS.accept parms sock) (\nconn -> close nconn >> atomically (signalTVar tv)) fio
+            ; bracket ((TLS.accept parms sock) `onException (atomically $ signalTVar tv)) (\nconn -> close nconn >> atomically (signalTVar tv)) fio
             }
         -- Need to open a new port
         ; Nothing -> do
@@ -123,14 +123,14 @@ choosePort dummy parms conn pt fio = do
             -- This ~shouldn't~ fail, since the connections are automatically closed on exception,
             -- but it's still pretty uncouth(?).
             -- linkOnly (const True) dummy
-            ; asy   <- async $ bracketOnError ( linkOnly (const True) dummy)
-                                              (\_ -> (putStrLn $ "closer for port " ++ (show pnum) ++ " received exception.") >> (atomically $ closePort' pt pnum sock tv (defaultConnLimit pt)) >> (putStrLn $ "closer for port " ++ (show pnum) ++ "finished closing stuff (in exception)") )
-                                              (\_ -> (atomically $ closePort' pt pnum sock tv (defaultConnLimit pt)) >> (putStrLn "finished closing stuff (not in exception)") )   
+         -- ; asy   <- async $ bracketOnError ( linkOnly (const True) dummy)
+         --                                   (\_ -> (putStrLn $ "closer for port " ++ (show pnum) ++ " received exception.") >> (atomically $ closePort' pt pnum sock tv (defaultConnLimit pt)) >> (putStrLn $ "closer for port " ++ (show pnum) ++ "finished closing stuff (in exception)") )
+         --                                   (\_ -> (atomically $ closePort' pt pnum sock tv (defaultConnLimit pt)) >> (putStrLn "finished closing stuff (not in exception)") )   
             -- To toggle debug messages easily.
             
-         -- ; async $ bracketOnError ( linkOnly (const True) dummy)
-         --                          (\_ -> atomically $ closePort' pt pnum sock tv (defaultConnLimit pt)) -- run on exceptions
-         --                          (\_ -> atomically $ closePort' pt pnum sock tv (defaultConnLimit pt)) -- main action
+            ; async $ bracketOnError ( linkOnly (const True) dummy)
+                                     (\_ -> atomically $ closePort' pt pnum sock tv (defaultConnLimit pt)) -- run on exceptions
+                                     (\_ -> atomically $ closePort' pt pnum sock tv (defaultConnLimit pt)) -- main action
             
          -- ; asy   <- async ((atomically $ closePort' pt pnum sock tv (defaultConnLimit pt))  `onException` (atomically $ closePort' pt pnum sock tv (defaultConnLimit pt)) )
             -- (The above line(s) write[s] the socket to the "close queue" when it doesn't have any active connections)
@@ -138,12 +138,14 @@ choosePort dummy parms conn pt fio = do
             
             ; send conn (runPut $ putWord16le $ fromIntegral pnum)
             ; close conn
-         -- ; nconn <- TCP.accept sock
-         -- ; (fio nconn) `finally` ( close nconn >> atomically (signalTVar tv))
+            -- Possible change:
+            -- leave the original connection open until the the new connection
+            -- is established; if the connection times out/fails,
+            -- send a message to the client on the original connection.
             -- bracket :: (IO a) -> (a -> IO b) -> (a -> IO c) -> IO c
             -- ...I think...
          -- ; bracket (TCP.accept sock) (\nconn -> close nconn >> putStrLn "closing a connection" >> atomically (signalTVar tv)) fio
-            ; bracket (TLS.accept parms sock) (\nconn -> close nconn >> atomically (signalTVar tv)) fio
+            ; bracket ((TLS.accept parms sock) `onException` (atomically $ signalTVar tv)) (\nconn -> close nconn >> atomically (signalTVar tv)) fio
             }
         }
     }
@@ -170,10 +172,10 @@ closeSocks tq = do
     { sock <- atomically $ readTQueue tq
     ; pnum <- socketPortSafe sock
     -- For debug
-    ; case pnum of
-        { (Just pn) -> putStrLn $ "Closing socket on port " ++ (show pn) ++ "."
-        ; Nothing   -> putStrLn $ "Closing a socket..."
-        }
+--  ; case pnum of
+--      { (Just pn) -> putStrLn $ "Closing socket on port " ++ (show pn) ++ "."
+--      ; Nothing   -> putStrLn $ "Closing a socket..."
+--      }
     ; close' sock
     ; closeSocks tq
     }
@@ -270,7 +272,7 @@ dummyThread = do
         ; check b
         }
 --  ; return () -- unnecessary; check returns ().
-    } `finally` (putStrLn "dummy has ended.")
+    } -- `finally` (putStrLn "dummy has ended.")
 -- asdfzxcv
 
 

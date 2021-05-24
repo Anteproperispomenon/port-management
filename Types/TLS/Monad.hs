@@ -95,7 +95,7 @@ import qualified Data.ByteString.Lazy as BL
 
 import Types.Connection.Monad (ConnectionT)
 
-import qualified Types.Connection.Monad as I
+import Types.Connection.Monad as I
 
 -- import Control.Monad.Trans.Control
 -- import Control.Monad.Base
@@ -104,7 +104,7 @@ import qualified Types.Connection.Monad as I
 -- type TCPT i m a =        ReaderT (TQueue x, TCPConnection, (x -> i)) m a
 -- data TCPT i m a = forall x. TCPT ( ReaderT (TQueue x, TCPConnection, (x -> i)) m a )
 
--- | This is the type of the TCP Transformer. Under the hood, it is a
+-- | This is the type of the TLS Transformer. Under the hood, it is a
 -- a wrapped ReaderT that has a queue (for receiving data) and a TCPConnection.
 --
 -- Note that this type is explicitly designed for use in this package; it does not
@@ -302,6 +302,14 @@ runTLST = I.runConnectionT -- (TLST rdr) gtr rsrc conn = do
 --     }
 -- asdfzxcv
 
+-- Old versions of the code that
+-- use specialised signatures.
+
+-- Removed so that one can use both Types.TLS.Monad
+-- and Types.TCP.Monad in the same module/program
+-- without having to import them qualified.
+
+{-
 
 -- | Receive an i from the connection. This function
 -- will block if there is no data to be received in
@@ -415,6 +423,8 @@ getResource = I.getResource -- = TLST $ do { (_,_,rsrc) <- ask ; return rsrc }
 -- atomicallyTCP :: (STM a) -> TLST i r IO a
 -- atomicallyTCP action = TLST $ atomically action
 
+-}
+
 -- | A shorthand to ease uses of STM.
 atomicallyTLST :: (MonadIO m) => (STM a) -> TLST i r m a
 atomicallyTLST = I.atomicallyConn -- action = TLST $ liftIO (atomically action)
@@ -446,3 +456,5 @@ atomicallyTLST = I.atomicallyConn -- action = TLST $ liftIO (atomically action)
 --     ; liftIO $ print msk
 --     }
 -- asdfzxcv
+
+

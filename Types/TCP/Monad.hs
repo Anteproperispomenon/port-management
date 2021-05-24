@@ -22,11 +22,16 @@ to use it.
 
 Note: This module actually predates Types.Connection.Monad,
 but then I generalised it to work with any type of Connection.
-However, importing this module will cause name clashes if imported
-together with Types.Connection.Monad, since this module doesn't
-just re-export the functions; it specialises them.
+Note that you can import this module together with 
+Types.Connection.Monad and/or Types.TLS.Monad; the TLS and TCP
+modules just re-export the functions from the general module,
+along with some specialised functions.
 
 -}
+
+-- However, importing this module will cause name clashes if imported
+-- together with Types.Connection.Monad, since this module doesn't
+-- just re-export the functions; it specialises them.
 
 -- If you prefer to use a monad that conceals the values of
 -- the connection, this is (probably?) for you.
@@ -99,7 +104,7 @@ import qualified Data.ByteString.Lazy as BL
 
 import Types.Connection.Monad (ConnectionT)
 
-import qualified Types.Connection.Monad as I
+import Types.Connection.Monad as I
 
 -- import Control.Monad.Trans.Control
 -- import Control.Monad.Base
@@ -306,6 +311,11 @@ runTCPT = I.runConnectionT -- (TCPT rdr) gtr rsrc conn = do
 --     }
 -- asdfzxcv
 
+-- Removed so that one can use both Types.TLS.Monad
+-- and Types.TCP.Monad in the same module/program
+-- without having to import them qualified.
+
+{-
 
 -- | Receive an i from the connection. This function
 -- will block if there is no data to be received in
@@ -419,6 +429,8 @@ getResource = I.getResource -- = TCPT $ do { (_,_,rsrc) <- ask ; return rsrc }
 -- atomicallyTCP :: (STM a) -> TCPT i r IO a
 -- atomicallyTCP action = TCPT $ atomically action
 
+-}
+
 -- | A shorthand to ease uses of STM.
 atomicallyTCPT :: (MonadIO m) => (STM a) -> TCPT i r m a
 atomicallyTCPT = I.atomicallyConn -- action = TCPT $ liftIO (atomically action)
@@ -450,3 +462,5 @@ atomicallyTCPT = I.atomicallyConn -- action = TCPT $ liftIO (atomically action)
 --     ; liftIO $ print msk
 --     }
 -- asdfzxcv
+
+
